@@ -3,7 +3,7 @@ import prod_config
 import requests
 from time import sleep
 
-homepage_url = "https://discord.com/"
+homepage_url = "https://github.com/MerelyMezz/prod_discord_bot"
 version = "1"
 api_version = 10
 ApiURL = "https://discord.com/api/v{}".format(api_version)
