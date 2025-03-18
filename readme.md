@@ -12,7 +12,8 @@ The default configuration file is `prod.conf` in the current working directory. 
 
 The config file should look like this:
 
-```BotToken [Paste bot token from discord]
+```
+BotToken [Paste bot token from discord]
 Guild [paste guild id]
 
 LogChannel [paste channel id where logs should be posted]
