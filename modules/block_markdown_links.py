@@ -3,6 +3,7 @@ import re
 
 ModuleFunctions = {}
 ModuleFunctions["MESSAGE_CREATE"] = {"BlockMarkdownLinks"}
+ModuleFunctions["MESSAGE_UPDATE"] = {"BlockMarkdownLinks"}
 
 def BlockMarkdownLinks(d):
     if re.search("\\[.*\\]\\(http(s)?://.*\\)", d["content"]) == None:

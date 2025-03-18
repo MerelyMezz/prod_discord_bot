@@ -2,6 +2,7 @@ import prod_api_helpers
 
 ModuleFunctions = {}
 ModuleFunctions["MESSAGE_CREATE"] = {"BlockAtEveryone"}
+ModuleFunctions["MESSAGE_UPDATE"] = {"BlockAtEveryone"}
 
 def BlockAtEveryone(d):
     if not d["mention_everyone"] == True:
