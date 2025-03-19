@@ -26,10 +26,12 @@ Intents = [
 # opcodes
 #https://discord.com/developers/docs/topics/opcodes-and-status-codes#gateway-gateway-opcodes
 
-OP_DISPATCH = 0
-OP_HEARTBEAT = 1
-OP_IDENTIFY = 2
-OP_HELLO = 10
+class OPCode:
+    DISPATCH = 0
+    HEARTBEAT = 1
+    IDENTIFY = 2
+    HELLO = 10
+    HEARTBEAT_ACK = 11
 
 # Set up table to call functions for events
 module_entries = prod_config.GetConfigDictionary("Module")
@@ -61,7 +63,7 @@ async def WebSocketLoop():
         # Receive initial event
         hello_event = await Receive()
 
-        if hello_event["op"] != OP_HELLO:
+        if hello_event["op"] != OPCode.HELLO:
             print("Bad Hello event from websocket")
             exit(1)
 
@@ -71,7 +73,7 @@ async def WebSocketLoop():
         async def HeartbeatLoop():
             LoopRestartEvent.wait(random.uniform(0.1, HeartbeatInterval))
             while not LoopRestartEvent.is_set():
-                await Send({"op": OP_HEARTBEAT, "d": LastSequence})
+                await Send({"op": OPCode.HEARTBEAT, "d": LastSequence})
                 LoopRestartEvent.wait(HeartbeatInterval)
 
             LoopRestartEvent.clear()
@@ -82,7 +84,7 @@ async def WebSocketLoop():
 
         # Send Identify
         identify = {}
-        identify["op"] = OP_IDENTIFY
+        identify["op"] = OPCode.IDENTIFY
         identify["d"] = {}
         identify["d"]["token"] = prod_api_helpers.BotToken
         identify["d"]["intents"] = sum(map(lambda x: 1 << x, Intents))
@@ -101,7 +103,7 @@ async def WebSocketLoop():
                 pprint(current_event)
 
             match current_event["op"]:
-                case OP_DISPATCH:
+                case OPCode.DISPATCH:
                     LastSequence = current_event["s"]
 
                     # Skip if message is from this bot or not from this guild
@@ -119,7 +121,7 @@ async def WebSocketLoop():
 
 while True:
     try:
-        asyncio.get_event_loop().run_until_complete(WebSocketLoop())
+        asyncio.run(WebSocketLoop())
     except:
         LoopRestartEvent.set()
         while LoopRestartEvent.is_set():
