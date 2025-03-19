@@ -33,10 +33,7 @@ OP_IDENTIFY = 2
 OP_HELLO = 10
 
 # Set up table to call functions for events
-module_entries = {}
-for module_entry in filter(lambda x: len(x) == 2 and len(x[0]) * len(x[1]) > 0, map(lambda x: x.split(" ", 1), prod_config.GetConfigArray("Module"))):
-    module_entries[module_entry[0]] = module_entry[1]
-
+module_entries = prod_config.GetConfigDictionary("Module")
 enabled_modules = list(filter(lambda x: module_entries[x] == "Enabled", module_entries.keys()))
 
 EventHooks = {}
@@ -50,6 +47,8 @@ for module in Modules:
 
 # Main web socket loop from which we receive events
 GatewayURL = prod_api_helpers.Api_Request("get", "/gateway")[0]["url"]
+
+LoopRestartEvent = threading.Event()
 
 async def WebSocketLoop():
     wss_url = "{}/?v={}&encoding=json".format(GatewayURL, prod_api_helpers.api_version)
@@ -71,10 +70,12 @@ async def WebSocketLoop():
 
         # start heartbeat loop
         async def HeartbeatLoop():
-            sleep(random.uniform(0.1, HeartbeatInterval))
-            while True:
+            LoopRestartEvent.wait(random.uniform(0.1, HeartbeatInterval))
+            while not LoopRestartEvent.is_set():
                 await Send({"op": OP_HEARTBEAT, "d": LastSequence})
-                sleep(HeartbeatInterval)
+                LoopRestartEvent.wait(HeartbeatInterval)
+
+            LoopRestartEvent.clear()
 
         LastSequence = None
         HeartbeatThread = threading.Thread(target=asyncio.run, args=(HeartbeatLoop(),))
@@ -121,4 +122,6 @@ while True:
     try:
         asyncio.get_event_loop().run_until_complete(WebSocketLoop())
     except:
-        pass
+        LoopRestartEvent.set()
+        while LoopRestartEvent.is_set():
+            pass

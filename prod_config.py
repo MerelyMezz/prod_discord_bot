@@ -26,3 +26,10 @@ GetConfigString = lambda x: ConfigEntries[x][-1] if x in ConfigEntries.keys() el
 GetConfigInt = lambda x: int(GetConfigString(x))
 GetConfigFloat = lambda x: float(GetConfigString(x))
 GetConfigArray = lambda x: ConfigEntries[x] if x in ConfigEntries.keys() else []
+
+def GetConfigDictionary(config_setting):
+    config_dict = {}
+    for config_entry in filter(lambda x: len(x) == 2 and len(x[0]) * len(x[1]) > 0, map(lambda x: x.split(" ", 1), GetConfigArray(config_setting))):
+        config_dict[config_entry[0]] = config_entry[1]
+
+    return config_dict
