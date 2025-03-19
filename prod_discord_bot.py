@@ -11,7 +11,6 @@ import prod_config
 import random
 import signal
 import threading
-from time import sleep
 import websockets
 
 signal.signal(signal.SIGINT, lambda n,m: os._exit(1))
