@@ -11,6 +11,7 @@ import prod_config
 import random
 import signal
 import threading
+from time import sleep
 import websockets
 
 signal.signal(signal.SIGINT, lambda n,m: os._exit(1))
@@ -48,6 +49,7 @@ for module in Modules:
 # Main web socket loop from which we receive events
 GatewayURL = prod_api_helpers.Api_Request("get", "/gateway")[0]["url"]
 
+HeartbeatThread = None
 LoopRestartEvent = threading.Event()
 
 async def WebSocketLoop():
@@ -123,7 +125,10 @@ async def WebSocketLoop():
 while True:
     try:
         asyncio.run(WebSocketLoop())
-    except:
+    except Exception as e:
+        print(e)
+        print("Restarting Discord Gateway")
         LoopRestartEvent.set()
-        while LoopRestartEvent.is_set():
+        while HeartbeatThread != None and HeartbeatThread.is_alive():
             pass
+        sleep(1)
