@@ -34,11 +34,10 @@ class OPCode:
     HEARTBEAT_ACK = 11
 
 # Set up table to call functions for events
-module_entries = prod_config.GetConfigDictionary("Module")
-enabled_modules = list(filter(lambda x: module_entries[x] == "Enabled", module_entries.keys()))
-
 EventHooks = {}
-Modules = list(map(lambda x: importlib.import_module("modules.{}".format(x[0:-3])), filter(lambda x: x[-3:] == ".py" and x[0:-3] in enabled_modules, os.listdir("modules"))))
+
+module_entries = prod_config.GetConfigFilteredDictArray("EnableModule", "True")
+Modules = list(map(lambda x: importlib.import_module("modules.{}".format(x[0:-3])), filter(lambda x: x[-3:] == ".py" and x[0:-3] in module_entries, os.listdir("modules"))))
 
 for module in Modules:
     for event_name in module.ModuleFunctions.keys():
@@ -106,13 +105,15 @@ async def WebSocketLoop():
                 case OPCode.DISPATCH:
                     LastSequence = current_event["s"]
 
-                    # Skip if message is from this bot or not from this guild
-                    is_message_event = current_event["t"] in ["MESSAGE_CREATE", "MESSAGE_UPDATE"]
-                    is_message_for_this_bot = is_message_event and current_event["d"]["author"]["id"] == prod_api_helpers.SelfID
-                    is_message_from_other_guild = is_message_event and current_event["d"]["guild_id"] != prod_api_helpers.GuildId
+                    # Skip if message is from this bot or not from this guild.
+                    # Also skip if they have an ignored role
+                    if current_event["t"] in ["MESSAGE_CREATE", "MESSAGE_UPDATE"]:
+                        is_message_for_this_bot = current_event["d"]["author"]["id"] == prod_api_helpers.SelfID
+                        is_message_from_other_guild = current_event["d"]["guild_id"] != prod_api_helpers.GuildId
+                        is_message_from_ignored_role = any(map(lambda x: x in prod_api_helpers.IgnoredRoles, current_event["d"]["member"]["roles"]))
 
-                    if is_message_for_this_bot or is_message_from_other_guild:
-                        continue
+                        if any([is_message_for_this_bot, is_message_from_other_guild, is_message_from_ignored_role]):
+                            continue
 
                     # Call all functions that listen to this event
                     if current_event["t"] in EventHooks.keys():

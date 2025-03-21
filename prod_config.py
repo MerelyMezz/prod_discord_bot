@@ -27,3 +27,4 @@ GetConfigInt = lambda x: int(GetConfigString(x))
 GetConfigFloat = lambda x: float(GetConfigString(x))
 GetConfigArray = lambda x: ConfigEntries[x] if x in ConfigEntries.keys() else []
 GetConfigDictionary = lambda x: dict(filter(lambda x: len(x) == 2 and len(x[0]) * len(x[1]) > 0, map(lambda x: x.split(" ", 1), GetConfigArray(x))))
+GetConfigFilteredDictArray = lambda x, filterkey: list((lambda d: filter(lambda x: d[x] == filterkey, d.keys()))(GetConfigDictionary(x)))

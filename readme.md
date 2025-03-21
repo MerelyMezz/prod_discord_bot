@@ -19,16 +19,18 @@ Guild [paste guild id]
 LogChannel [paste channel id where logs should be posted]
 QuarantineRole [paste role id that offending accounts should be assigned]
 
-Module block_markdown_links Enabled
-Module block_at_everyone Enabled
-Module block_multi_channel_spam Enabled
+IgnoreRole [role to be ignored by the bot, such as staff] True
+
+EnableModule block_markdown_links True
+EnableModule block_at_everyone True
+EnableModule block_multi_channel_spam True
 
 MultiChannelSpamIntervalSeconds 10
 MultiChannelSpamPostCountThreshold 3
 ```
 ## Modules
 
-Modules are python code files, that will dynamically be loaded when placed in the `modules` folder and enabled in the config with `Module [filename without extension] Enabled`. You can write your own modules and have your functions be called, by declaring them in a dictionary called `ModuleFunctions`. The keys are Discord's Gateway Event names and the values are sets of function names in the local module to call. The function will be passed the event data (the "d" field of a Gateway Event Payload).
+Modules are python code files, that will dynamically be loaded when placed in the `modules` folder and enabled in the config with `EnableModule [filename without extension] True`. You can write your own modules and have your functions be called, by declaring them in a dictionary called `ModuleFunctions`. The keys are Discord's Gateway Event names and the values are sets of function names in the local module to call. The function will be passed the event data (the "d" field of a Gateway Event Payload).
 
 Some helper functions are also provided:
 

@@ -12,6 +12,7 @@ GuildId = prod_config.GetConfigString("Guild")
 BotToken = prod_config.GetConfigString("BotToken")
 LogChannel = prod_config.GetConfigString("LogChannel")
 QuarantineRole = prod_config.GetConfigString("QuarantineRole")
+IgnoredRoles = prod_config.GetConfigFilteredDictArray("IgnoreRole", "True")
 
 Headers = {"Authorization":"Bot {}".format(BotToken),
            "User-Agent": "DiscordBot ({}, {})".format(homepage_url, version),
