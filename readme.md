@@ -25,8 +25,8 @@ EnableModule block_markdown_links True
 EnableModule block_at_everyone True
 EnableModule block_multi_channel_spam True
 
-MultiChannelSpamIntervalSeconds 10
-MultiChannelSpamPostCountThreshold 3
+MultiChannelSpamIntervalSeconds 5
+MultiChannelSpamPostCountThreshold 8
 ```
 ## Modules
 
