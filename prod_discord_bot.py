@@ -31,6 +31,7 @@ class OPCode:
     DISPATCH = 0
     HEARTBEAT = 1
     IDENTIFY = 2
+    INVALID_SESSION = 9
     HELLO = 10
     HEARTBEAT_ACK = 11
 
@@ -77,8 +78,6 @@ async def WebSocketLoop():
                 await Send({"op": OPCode.HEARTBEAT, "d": LastSequence})
                 LoopRestartEvent.wait(HeartbeatInterval)
 
-            LoopRestartEvent.clear()
-
         LastSequence = None
         HeartbeatThread = threading.Thread(target=asyncio.run, args=(HeartbeatLoop(),))
         HeartbeatThread.start()
@@ -121,14 +120,18 @@ async def WebSocketLoop():
                     if current_event["t"] in EventHooks.keys():
                         for f in EventHooks[current_event["t"]]:
                             f(current_event["d"])
+                case OPCode.INVALID_SESSION:
+                    raise Exception("Gateway invalidated session")
 
 while True:
     try:
         asyncio.run(WebSocketLoop())
     except Exception as e:
         print(e)
+    finally:
         print("Restarting Discord Gateway")
         LoopRestartEvent.set()
         while HeartbeatThread != None and HeartbeatThread.is_alive():
             pass
+        LoopRestartEvent.clear()
         sleep(1)
