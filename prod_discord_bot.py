@@ -31,12 +31,21 @@ class OPCode:
     DISPATCH = 0
     HEARTBEAT = 1
     IDENTIFY = 2
+    RESUME = 6
+    RECONNECT = 7
     INVALID_SESSION = 9
     HELLO = 10
     HEARTBEAT_ACK = 11
 
 # Set up table to call functions for events
+def SaveResumeInfo(d):
+    global ResumeURL
+    global ResumeSession
+    ResumeURL = d["resume_gateway_url"]
+    ResumeSession = d["session_id"]
+
 EventHooks = {}
+EventHooks["READY"] = { SaveResumeInfo }
 
 module_entries = prod_config.GetConfigFilteredDictArray("EnableModule", "True")
 Modules = list(map(lambda x: importlib.import_module("modules.{}".format(x[0:-3])), filter(lambda x: x[-3:] == ".py" and x[0:-3] in module_entries, os.listdir("modules"))))
@@ -50,11 +59,19 @@ for module in Modules:
 # Main web socket loop from which we receive events
 GatewayURL = prod_api_helpers.Api_Request("get", "/gateway")[0]["url"]
 
+LastSequence = None
+ResumeURL = None
+ResumeSession = None
+
 HeartbeatThread = None
 LoopRestartEvent = threading.Event()
 
 async def WebSocketLoop():
-    wss_url = "{}/?v={}&encoding=json".format(GatewayURL, prod_api_helpers.api_version)
+    global LastSequence
+    global ResumeURL
+    global ResumeSession
+
+    wss_url = "{}/?v={}&encoding=json".format(ResumeURL or GatewayURL, prod_api_helpers.api_version)
     async with websockets.connect(wss_url) as ws:
         async def Send(dict):
             await ws.send(json.dumps(dict))
@@ -65,35 +82,53 @@ async def WebSocketLoop():
         # Receive initial event
         hello_event = await Receive()
 
-        if hello_event["op"] != OPCode.HELLO:
-            print("Bad Hello event from websocket")
-            exit(1)
-
-        HeartbeatInterval = hello_event["d"]["heartbeat_interval"] * 0.001
+        match hello_event["op"]:
+            case OPCode.HELLO:
+                HeartbeatInterval = hello_event["d"]["heartbeat_interval"] * 0.001
+            case OPCode.RECONNECT:
+                raise Exception("Gateway requested reconnect, before Hello was sent.")
+            case _:
+                raise Exception("Bad Hello event from websocket")
 
         # start heartbeat loop
+        async def SendHeartbeat():
+            await Send({"op": OPCode.HEARTBEAT, "d": LastSequence})
+
         async def HeartbeatLoop():
             LoopRestartEvent.wait(random.uniform(0.1, HeartbeatInterval))
             while not LoopRestartEvent.is_set():
-                await Send({"op": OPCode.HEARTBEAT, "d": LastSequence})
+                await SendHeartbeat()
                 LoopRestartEvent.wait(HeartbeatInterval)
 
-        LastSequence = None
+        if ResumeSession == None:
+            LastSequence = None
+
         HeartbeatThread = threading.Thread(target=asyncio.run, args=(HeartbeatLoop(),))
         HeartbeatThread.start()
 
-        # Send Identify
-        identify = {}
-        identify["op"] = OPCode.IDENTIFY
-        identify["d"] = {}
-        identify["d"]["token"] = prod_api_helpers.BotToken
-        identify["d"]["intents"] = sum(map(lambda x: 1 << x, Intents))
-        identify["d"]["properties"] = {}
-        identify["d"]["properties"]["os"] = platform.system().lower()
-        identify["d"]["properties"]["browser"] = "DiscordBot"
-        identify["d"]["properties"]["device"] = "DiscordBot"
+        # Send Identify or Resume
 
-        await Send(identify)
+        if ResumeSession == None:
+            identify = {}
+            identify["op"] = OPCode.IDENTIFY
+            identify["d"] = {}
+            identify["d"]["token"] = prod_api_helpers.BotToken
+            identify["d"]["intents"] = sum(map(lambda x: 1 << x, Intents))
+            identify["d"]["properties"] = {}
+            identify["d"]["properties"]["os"] = platform.system().lower()
+            identify["d"]["properties"]["browser"] = "DiscordBot"
+            identify["d"]["properties"]["device"] = "DiscordBot"
+
+            await Send(identify)
+        else:
+            resume = {}
+            resume["op"] = OPCode.RESUME
+            resume["d"] = {}
+            resume["d"]["token"] = prod_api_helpers.BotToken
+            resume["d"]["session_id"] = ResumeSession
+            resume["d"]["seq"] = LastSequence
+
+            await Send(resume)
 
         # Start processing events
         while True:
@@ -104,6 +139,13 @@ async def WebSocketLoop():
 
             match current_event["op"]:
                 case OPCode.DISPATCH:
+                    # Skip if event already happened. This can happen after a resume,
+                    # when an event was received, but not yet acknowledged in a heartbeat,
+                    # causing the event to be re-sent.
+                    if LastSequence != None and current_event["s"] <= LastSequence:
+                        continue
+
+                    # Keep track of newest event in sequence
                     LastSequence = current_event["s"]
 
                     # Skip if message is from this bot or not from this guild.
@@ -120,8 +162,19 @@ async def WebSocketLoop():
                     if current_event["t"] in EventHooks.keys():
                         for f in EventHooks[current_event["t"]]:
                             f(current_event["d"])
+
                 case OPCode.INVALID_SESSION:
+                    if current_event["d"] == False:
+                        ResumeURL = None
+                        ResumeSession = None
+
                     raise Exception("Gateway invalidated session")
+
+                case OPCode.HEARTBEAT:
+                    await SendHeartbeat()
+
+                case OPCode.RECONNECT:
+                    raise Exception("Gateway requests reconnect")
 
 while True:
     try:
