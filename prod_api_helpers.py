@@ -33,6 +33,9 @@ def Api_Request(request_type, api_string, body=None):
         else:
             break
 
+    if prod_config.args.debug:
+        print("API Request: {} {}\n{}\nAPI Response: {}\n{}".format(request_type, api_string, body, Response.status_code, content))
+
     return content, Response.status_code
 
 def PostMessage(channel_id, message):
